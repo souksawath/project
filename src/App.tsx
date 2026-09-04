@@ -1,0 +1,574 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Header } from './components/Header';
+import { GanttChart } from './components/GanttChart';
+import { TaskTableView } from './components/TaskTableView';
+import { ResourceManagement } from './components/ResourceManagement';
+import { KanbanBoard } from './components/KanbanBoard';
+import { ProjectAnalytics } from './components/ProjectAnalytics';
+import { TaskModal } from './components/TaskModal';
+import { ResourceModal } from './components/ResourceModal';
+import { GoogleSheetModal } from './components/GoogleSheetModal';
+import { Task, Resource, ProjectInfo, ViewMode, Language, TaskStatus } from './types';
+import { initialTasks, initialResources, initialProject } from './data/initialData';
+import { translations } from './utils/i18n';
+import {
+  initAuth,
+  googleSignIn,
+  logout,
+  getAccessToken,
+  setCachedAccessToken,
+} from './services/auth';
+import {
+  createProjectSpreadsheet,
+  syncTasksToSpreadsheet,
+  readTasksFromSpreadsheet,
+} from './services/sheetsService';
+import { User } from 'firebase/auth';
+
+const STORAGE_KEYS = {
+  TASKS: 'pm_tasks_data',
+  RESOURCES: 'pm_resources_data',
+  PROJECT: 'pm_project_info',
+  LANGUAGE: 'pm_language_pref',
+};
+
+export default function App() {
+  // Localization State (default to Lao 'la' as prompt was in Lao)
+  const [language, setLanguage] = useState<Language>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.LANGUAGE);
+    return saved === 'en' ? 'en' : 'la';
+  });
+
+  const t = translations[language];
+
+  // Active View Tab
+  const [viewMode, setViewMode] = useState<ViewMode>('gantt');
+
+  // Core Project Data
+  const [project, setProject] = useState<ProjectInfo>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.PROJECT);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved project info', e);
+      }
+    }
+    return initialProject;
+  });
+
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.TASKS);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved tasks', e);
+      }
+    }
+    return initialTasks;
+  });
+
+  const [resources, setResources] = useState<Resource[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.RESOURCES);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved resources', e);
+      }
+    }
+    return initialResources;
+  });
+
+  // Auth and Google Workspace state
+  const [user, setUser] = useState<User | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
+  const [autoSync, setAutoSync] = useState(false);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Modals state
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [parentTaskIdForNew, setParentTaskIdForNew] = useState<string | null>(null);
+
+  const [isResourceModalOpen, setIsResourceModalOpen] = useState(false);
+  const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
+
+  const [isSheetModalOpen, setIsSheetModalOpen] = useState(false);
+
+  // Persistence effects
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
+  }, [tasks]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.RESOURCES, JSON.stringify(resources));
+  }, [resources]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.PROJECT, JSON.stringify(project));
+  }, [project]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.LANGUAGE, language);
+  }, [language]);
+
+  // Toast auto-clear
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
+  const showToast = (text: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToastMessage({ text, type });
+  };
+
+  // Auth Initialization on load
+  useEffect(() => {
+    const unsubscribe = initAuth(
+      (authUser, token) => {
+        setUser(authUser);
+        setAccessToken(token);
+      },
+      () => {
+        setUser(null);
+        setAccessToken(null);
+      }
+    );
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, []);
+
+  const handleSignIn = async () => {
+    try {
+      const result = await googleSignIn();
+      if (result) {
+        setUser(result.user);
+        setAccessToken(result.accessToken);
+        showToast(
+          language === 'la'
+            ? `ຍິນດີຕ້ອນຮັບ, ${result.user.displayName || 'Google User'}`
+            : `Welcome, ${result.user.displayName || 'Google User'}`
+        );
+      }
+    } catch (err: any) {
+      console.error('Google Sign In failed', err);
+      showToast(err.message || 'Google Sign In failed', 'error');
+    }
+  };
+
+  const handleSignOut = async () => {
+    await logout();
+    setUser(null);
+    setAccessToken(null);
+    showToast(language === 'la' ? 'ອອກຈາກລະບົບ Google ແລ້ວ' : 'Signed out from Google', 'info');
+  };
+
+  // Google Sheets: Create New Sheet
+  const handleCreateNewSheet = async () => {
+    let token = accessToken;
+    if (!token) {
+      const signinRes = await googleSignIn();
+      if (!signinRes) return;
+      setUser(signinRes.user);
+      setAccessToken(signinRes.accessToken);
+      token = signinRes.accessToken;
+    }
+
+    try {
+      setIsSyncing(true);
+      const { spreadsheetId, spreadsheetUrl } = await createProjectSpreadsheet(
+        token,
+        project.name,
+        tasks,
+        resources
+      );
+
+      setProject((prev) => ({
+        ...prev,
+        spreadsheetId,
+        spreadsheetUrl,
+        lastSyncedAt: new Date().toISOString(),
+      }));
+
+      setLastSynced(new Date());
+      showToast(
+        language === 'la'
+          ? 'ສ້າງ ແລະ ເຊື່ອມຕໍ່ Google Sheet ສຳເລັດແລ້ວ!'
+          : 'Created & connected new Google Sheet successfully!'
+      );
+    } catch (err: any) {
+      console.error('Create sheet error:', err);
+      showToast(err.message || 'Failed to create Google Sheet', 'error');
+      throw err;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Google Sheets: Sync to Sheet (Push)
+  const handleSyncToSheet = async () => {
+    if (!project.spreadsheetId) {
+      throw new Error('No spreadsheet connected. Please create or link a sheet first.');
+    }
+
+    let token = accessToken;
+    if (!token) {
+      const signinRes = await googleSignIn();
+      if (!signinRes) return;
+      setUser(signinRes.user);
+      setAccessToken(signinRes.accessToken);
+      token = signinRes.accessToken;
+    }
+
+    try {
+      setIsSyncing(true);
+      await syncTasksToSpreadsheet(token, project.spreadsheetId, tasks, resources);
+      setLastSynced(new Date());
+      setProject((prev) => ({
+        ...prev,
+        lastSyncedAt: new Date().toISOString(),
+      }));
+      showToast(t.syncSuccess);
+    } catch (err: any) {
+      console.error('Sync to sheet error:', err);
+      showToast(err.message || t.syncError, 'error');
+      throw err;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Google Sheets: Pull from Sheet
+  const handlePullFromSheet = async () => {
+    if (!project.spreadsheetId) {
+      throw new Error('No spreadsheet connected');
+    }
+
+    let token = accessToken;
+    if (!token) {
+      const signinRes = await googleSignIn();
+      if (!signinRes) return;
+      setUser(signinRes.user);
+      setAccessToken(signinRes.accessToken);
+      token = signinRes.accessToken;
+    }
+
+    try {
+      setIsSyncing(true);
+      const { tasks: sheetTasks } = await readTasksFromSpreadsheet(
+        token,
+        project.spreadsheetId,
+        resources
+      );
+
+      if (sheetTasks && sheetTasks.length > 0) {
+        setTasks(sheetTasks);
+        setLastSynced(new Date());
+        showToast(
+          language === 'la'
+            ? `ດຶງຂໍ້ມູນສຳເລັດ! ອັບເດດ ${sheetTasks.length} ລາຍການວຽກ`
+            : `Pulled successfully! Updated ${sheetTasks.length} tasks`
+        );
+      } else {
+        showToast(
+          language === 'la'
+            ? 'ບໍ່ພົບແຖວຂໍ້ມູນວຽກໃນ Google Sheet'
+            : 'No task rows found in Google Sheet',
+          'info'
+        );
+      }
+    } catch (err: any) {
+      console.error('Pull from sheet error:', err);
+      showToast(err.message || 'Failed to pull tasks from sheet', 'error');
+      throw err;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Google Sheets: Link existing sheet
+  const handleLinkExistingSheet = async (sheetId: string) => {
+    let token = accessToken;
+    if (!token) {
+      const signinRes = await googleSignIn();
+      if (!signinRes) return;
+      setUser(signinRes.user);
+      setAccessToken(signinRes.accessToken);
+      token = signinRes.accessToken;
+    }
+
+    try {
+      setIsSyncing(true);
+      const { tasks: pulledTasks } = await readTasksFromSpreadsheet(token, sheetId, resources);
+      const url = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+
+      setProject((prev) => ({
+        ...prev,
+        spreadsheetId: sheetId,
+        spreadsheetUrl: url,
+        lastSyncedAt: new Date().toISOString(),
+      }));
+
+      if (pulledTasks && pulledTasks.length > 0) {
+        setTasks(pulledTasks);
+      }
+
+      setLastSynced(new Date());
+      showToast(
+        language === 'la'
+          ? 'ເຊື່ອມຕໍ່ກັບ Google Sheet ສຳເລັດແລ້ວ!'
+          : 'Connected to existing Google Sheet successfully!'
+      );
+    } catch (err: any) {
+      console.error('Link sheet error:', err);
+      showToast(err.message || 'Failed to link Google Sheet', 'error');
+      throw err;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Real-time Auto-Sync Polling Interval
+  useEffect(() => {
+    if (!autoSync || !project.spreadsheetId || !accessToken) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const { tasks: updatedTasks } = await readTasksFromSpreadsheet(
+          accessToken,
+          project.spreadsheetId!,
+          resources
+        );
+        if (updatedTasks && updatedTasks.length > 0) {
+          setTasks(updatedTasks);
+          setLastSynced(new Date());
+        }
+      } catch (e) {
+        console.warn('Real-time auto sync polling error:', e);
+      }
+    }, 30000); // Poll every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [autoSync, project.spreadsheetId, accessToken, resources]);
+
+  // Task Actions
+  const handleOpenAddTask = (parentId?: string | null) => {
+    setSelectedTask(null);
+    setParentTaskIdForNew(parentId || null);
+    setIsTaskModalOpen(true);
+  };
+
+  const handleOpenEditTask = (task: Task) => {
+    setSelectedTask(task);
+    setParentTaskIdForNew(null);
+    setIsTaskModalOpen(true);
+  };
+
+  const handleSaveTask = (taskData: Partial<Task>) => {
+    if (selectedTask) {
+      // Edit existing task
+      setTasks((prev) =>
+        prev.map((t) => (t.id === selectedTask.id ? ({ ...t, ...taskData } as Task) : t))
+      );
+      showToast(language === 'la' ? 'ອັບເດດຂໍ້ມູນວຽກສຳເລັດ' : 'Task updated successfully');
+    } else {
+      // Add new task
+      const newTask = taskData as Task;
+      setTasks((prev) => [...prev, newTask]);
+      showToast(language === 'la' ? 'ເພີ່ມໜ້າວຽກໃໝ່ສຳເລັດ' : 'New task added successfully');
+    }
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    // Also delete any subtasks of this task
+    setTasks((prev) => prev.filter((t) => t.id !== taskId && t.parentId !== taskId));
+    showToast(language === 'la' ? 'ລຶບວຽກສຳເລັດແລ້ວ' : 'Task deleted', 'info');
+  };
+
+  const handleUpdateStatus = (taskId: string, newStatus: TaskStatus) => {
+    setTasks((prev) =>
+      prev.map((task) => {
+        if (task.id === taskId) {
+          let newProgress = task.progress;
+          if (newStatus === 'completed') newProgress = 100;
+          if (newStatus === 'not_started') newProgress = 0;
+          if (newStatus === 'in_progress' && task.progress === 0) newProgress = 25;
+          return { ...task, status: newStatus, progress: newProgress };
+        }
+        return task;
+      })
+    );
+  };
+
+  // Resource Actions
+  const handleOpenAddResource = () => {
+    setSelectedResource(null);
+    setIsResourceModalOpen(true);
+  };
+
+  const handleOpenEditResource = (resource: Resource) => {
+    setSelectedResource(resource);
+    setIsResourceModalOpen(true);
+  };
+
+  const handleSaveResource = (resourceData: Resource) => {
+    if (selectedResource) {
+      setResources((prev) =>
+        prev.map((r) => (r.id === selectedResource.id ? resourceData : r))
+      );
+      showToast(language === 'la' ? 'ອັບເດດຂໍ້ມູນສະມາຊິກສຳເລັດ' : 'Resource updated');
+    } else {
+      setResources((prev) => [...prev, resourceData]);
+      showToast(language === 'la' ? 'ເພີ່ມສະມາຊິກໃໝ່ສຳເລັດ' : 'New resource added');
+    }
+  };
+
+  const handleDeleteResource = (resourceId: string) => {
+    if (resources.length <= 1) {
+      showToast('Cannot delete the only resource', 'error');
+      return;
+    }
+    const fallbackId = resources.find((r) => r.id !== resourceId)?.id || '';
+    // Reassign tasks assigned to this resource
+    setTasks((prev) =>
+      prev.map((t) => (t.assigneeId === resourceId ? { ...t, assigneeId: fallbackId } : t))
+    );
+    setResources((prev) => prev.filter((r) => r.id !== resourceId));
+    showToast(language === 'la' ? 'ລຶບສະມາຊິກແລ້ວ' : 'Resource deleted', 'info');
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased">
+      {/* Top Application Header */}
+      <Header
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        language={language}
+        onLanguageChange={setLanguage}
+        project={project}
+        user={user}
+        onSignIn={handleSignIn}
+        onSignOut={handleSignOut}
+        onOpenSheetModal={() => setIsSheetModalOpen(true)}
+        isSyncing={isSyncing}
+        lastSynced={lastSynced}
+      />
+
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div
+          className={`fixed bottom-5 right-5 z-50 px-4 py-2.5 rounded-xl shadow-lg border text-xs font-semibold flex items-center gap-2 animate-in slide-in-from-bottom-5 duration-200 ${
+            toastMessage.type === 'error'
+              ? 'bg-rose-900 text-white border-rose-700'
+              : toastMessage.type === 'info'
+              ? 'bg-slate-900 text-white border-slate-700'
+              : 'bg-emerald-900 text-white border-emerald-700'
+          }`}
+        >
+          <span>{toastMessage.text}</span>
+        </div>
+      )}
+
+      {/* Main Viewport Content */}
+      <main className="flex-1 w-full max-w-[1600px] mx-auto p-3 sm:p-4">
+        {viewMode === 'gantt' && (
+          <GanttChart
+            tasks={tasks}
+            resources={resources}
+            language={language}
+            onSelectTask={handleOpenEditTask}
+            onAddTask={handleOpenAddTask}
+          />
+        )}
+
+        {viewMode === 'table' && (
+          <TaskTableView
+            tasks={tasks}
+            resources={resources}
+            language={language}
+            onSelectTask={handleOpenEditTask}
+            onAddTask={handleOpenAddTask}
+            onDeleteTask={handleDeleteTask}
+            onUpdateStatus={handleUpdateStatus}
+          />
+        )}
+
+        {viewMode === 'resources' && (
+          <ResourceManagement
+            resources={resources}
+            tasks={tasks}
+            language={language}
+            onAddResource={handleOpenAddResource}
+            onEditResource={handleOpenEditResource}
+            onDeleteResource={handleDeleteResource}
+          />
+        )}
+
+        {viewMode === 'board' && (
+          <KanbanBoard
+            tasks={tasks}
+            resources={resources}
+            language={language}
+            onSelectTask={handleOpenEditTask}
+            onAddTask={handleOpenAddTask}
+            onUpdateStatus={handleUpdateStatus}
+          />
+        )}
+
+        {viewMode === 'analytics' && (
+          <ProjectAnalytics
+            tasks={tasks}
+            resources={resources}
+            language={language}
+          />
+        )}
+      </main>
+
+      {/* Modals */}
+      <TaskModal
+        isOpen={isTaskModalOpen}
+        onClose={() => setIsTaskModalOpen(false)}
+        onSave={handleSaveTask}
+        task={selectedTask}
+        parentTaskId={parentTaskIdForNew}
+        tasks={tasks}
+        resources={resources}
+        language={language}
+      />
+
+      <ResourceModal
+        isOpen={isResourceModalOpen}
+        onClose={() => setIsResourceModalOpen(false)}
+        onSave={handleSaveResource}
+        resource={selectedResource}
+        language={language}
+      />
+
+      <GoogleSheetModal
+        isOpen={isSheetModalOpen}
+        onClose={() => setIsSheetModalOpen(false)}
+        project={project}
+        user={user}
+        tasks={tasks}
+        resources={resources}
+        language={language}
+        onSignIn={handleSignIn}
+        onCreateNewSheet={handleCreateNewSheet}
+        onSyncToSheet={handleSyncToSheet}
+        onPullFromSheet={handlePullFromSheet}
+        onLinkExistingSheet={handleLinkExistingSheet}
+        isSyncing={isSyncing}
+        lastSynced={lastSynced}
+        autoSync={autoSync}
+        onToggleAutoSync={setAutoSync}
+      />
+    </div>
+  );
+}

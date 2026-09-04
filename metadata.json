@@ -1,0 +1,6 @@
+{
+  "name": "Project Planner",
+  "description": "A project management web application with Gantt chart, task breakdown, resource management, and real-time Google Sheets synchronization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
