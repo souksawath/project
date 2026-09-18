@@ -6,6 +6,7 @@ import {
   Kanban,
   BarChart3,
   FileSpreadsheet,
+  Database,
   RefreshCw,
   ExternalLink,
   LogIn,
@@ -27,6 +28,7 @@ interface HeaderProps {
   onSignIn: () => void;
   onSignOut: () => void;
   onOpenSheetModal: () => void;
+  onOpenFirebaseModal: () => void;
   onQuickAddTask: () => void;
   isSyncing: boolean;
   lastSynced: Date | null;
@@ -42,6 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSignIn,
   onSignOut,
   onOpenSheetModal,
+  onOpenFirebaseModal,
   onQuickAddTask,
   isSyncing,
   lastSynced,
@@ -102,6 +105,17 @@ export const Header: React.FC<HeaderProps> = ({
             ) : project.spreadsheetId ? (
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200" />
             ) : null}
+          </button>
+
+          {/* Firebase Database Trigger */}
+          <button
+            id="btn-firebase-database-sync"
+            onClick={onOpenFirebaseModal}
+            className="px-3 py-1.5 rounded text-xs font-medium bg-amber-600/90 hover:bg-amber-600 text-white border border-amber-500 transition-colors flex items-center gap-1.5 shadow-xs"
+            title="Firebase Cloud Database"
+          >
+            <Database className="w-4 h-4 text-amber-200" />
+            <span className="hidden sm:inline">Firebase DB</span>
           </button>
 
           {/* Quick External Link to Google Sheets if connected */}

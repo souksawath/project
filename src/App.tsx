@@ -8,6 +8,7 @@ import { ProjectAnalytics } from './components/ProjectAnalytics';
 import { TaskModal } from './components/TaskModal';
 import { ResourceModal } from './components/ResourceModal';
 import { GoogleSheetModal } from './components/GoogleSheetModal';
+import { FirebaseModal } from './components/FirebaseModal';
 import { Task, Resource, ProjectInfo, ViewMode, Language, TaskStatus } from './types';
 import { initialTasks, initialResources, initialProject } from './data/initialData';
 import { translations } from './utils/i18n';
@@ -23,6 +24,16 @@ import {
   syncTasksToSpreadsheet,
   readTasksFromSpreadsheet,
 } from './services/sheetsService';
+import {
+  loadInitialDataFromFirestore,
+  saveTasksToFirestore,
+  saveTaskToFirestore,
+  deleteTaskFromFirestore,
+  saveResourcesToFirestore,
+  saveResourceToFirestore,
+  deleteResourceFromFirestore,
+  saveProjectToFirestore,
+} from './services/firestoreService';
 import { User } from 'firebase/auth';
 
 const STORAGE_KEYS = {
@@ -98,6 +109,34 @@ export default function App() {
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
 
   const [isSheetModalOpen, setIsSheetModalOpen] = useState(false);
+  const [isFirebaseModalOpen, setIsFirebaseModalOpen] = useState(false);
+  const [isCloudConnected, setIsCloudConnected] = useState(true);
+  const [lastCloudSynced, setLastCloudSynced] = useState<Date | null>(null);
+
+  // Load from Firebase on first mount if available
+  useEffect(() => {
+    let isMounted = true;
+    loadInitialDataFromFirestore().then((cloudData) => {
+      if (!isMounted) return;
+      if (cloudData.tasks && cloudData.tasks.length > 0) {
+        setTasks(cloudData.tasks);
+      }
+      if (cloudData.resources && cloudData.resources.length > 0) {
+        setResources(cloudData.resources);
+      }
+      if (cloudData.project) {
+        setProject(cloudData.project);
+      }
+      if (cloudData.tasks || cloudData.resources) {
+        setLastCloudSynced(new Date());
+      }
+    }).catch((err) => {
+      console.warn('Initial cloud load warning:', err);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Persistence effects
   useEffect(() => {
@@ -374,14 +413,17 @@ export default function App() {
   const handleSaveTask = (taskData: Partial<Task>) => {
     if (selectedTask) {
       // Edit existing task
+      const updated = { ...selectedTask, ...taskData } as Task;
       setTasks((prev) =>
-        prev.map((t) => (t.id === selectedTask.id ? ({ ...t, ...taskData } as Task) : t))
+        prev.map((t) => (t.id === selectedTask.id ? updated : t))
       );
+      saveTaskToFirestore(updated).catch((err) => console.warn('Cloud save task error:', err));
       showToast(language === 'la' ? 'ອັບເດດຂໍ້ມູນວຽກສຳເລັດ' : 'Task updated successfully');
     } else {
       // Add new task
       const newTask = taskData as Task;
       setTasks((prev) => [...prev, newTask]);
+      saveTaskToFirestore(newTask).catch((err) => console.warn('Cloud save task error:', err));
       showToast(language === 'la' ? 'ເພີ່ມໜ້າວຽກໃໝ່ສຳເລັດ' : 'New task added successfully');
     }
   };
@@ -389,6 +431,7 @@ export default function App() {
   const handleDeleteTask = (taskId: string) => {
     // Also delete any subtasks of this task
     setTasks((prev) => prev.filter((t) => t.id !== taskId && t.parentId !== taskId));
+    deleteTaskFromFirestore(taskId).catch((err) => console.warn('Cloud delete task error:', err));
     showToast(language === 'la' ? 'ລຶບວຽກສຳເລັດແລ້ວ' : 'Task deleted', 'info');
   };
 
@@ -400,7 +443,9 @@ export default function App() {
           if (newStatus === 'completed') newProgress = 100;
           if (newStatus === 'not_started') newProgress = 0;
           if (newStatus === 'in_progress' && task.progress === 0) newProgress = 25;
-          return { ...task, status: newStatus, progress: newProgress };
+          const updated = { ...task, status: newStatus, progress: newProgress };
+          saveTaskToFirestore(updated).catch((err) => console.warn('Cloud status update error:', err));
+          return updated;
         }
         return task;
       })
@@ -423,9 +468,11 @@ export default function App() {
       setResources((prev) =>
         prev.map((r) => (r.id === selectedResource.id ? resourceData : r))
       );
+      saveResourceToFirestore(resourceData).catch((err) => console.warn('Cloud save resource error:', err));
       showToast(language === 'la' ? 'ອັບເດດຂໍ້ມູນສະມາຊິກສຳເລັດ' : 'Resource updated');
     } else {
       setResources((prev) => [...prev, resourceData]);
+      saveResourceToFirestore(resourceData).catch((err) => console.warn('Cloud save resource error:', err));
       showToast(language === 'la' ? 'ເພີ່ມສະມາຊິກໃໝ່ສຳເລັດ' : 'New resource added');
     }
   };
@@ -441,6 +488,7 @@ export default function App() {
       prev.map((t) => (t.assigneeId === resourceId ? { ...t, assigneeId: fallbackId } : t))
     );
     setResources((prev) => prev.filter((r) => r.id !== resourceId));
+    deleteResourceFromFirestore(resourceId).catch((err) => console.warn('Cloud delete resource error:', err));
     showToast(language === 'la' ? 'ລຶບສະມາຊິກແລ້ວ' : 'Resource deleted', 'info');
   };
 
@@ -457,6 +505,8 @@ export default function App() {
         onSignIn={handleSignIn}
         onSignOut={handleSignOut}
         onOpenSheetModal={() => setIsSheetModalOpen(true)}
+        onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
+        onQuickAddTask={handleOpenAddTask}
         isSyncing={isSyncing}
         lastSynced={lastSynced}
       />
@@ -568,6 +618,24 @@ export default function App() {
         lastSynced={lastSynced}
         autoSync={autoSync}
         onToggleAutoSync={setAutoSync}
+      />
+
+      <FirebaseModal
+        isOpen={isFirebaseModalOpen}
+        onClose={() => setIsFirebaseModalOpen(false)}
+        language={language}
+        tasks={tasks}
+        resources={resources}
+        project={project}
+        onDataLoaded={(data) => {
+          if (data.tasks) setTasks(data.tasks);
+          if (data.resources) setResources(data.resources);
+          if (data.project) setProject(data.project);
+          setLastCloudSynced(new Date());
+        }}
+        showToast={showToast}
+        isCloudConnected={isCloudConnected}
+        lastCloudSynced={lastCloudSynced}
       />
     </div>
   );

@@ -3,6 +3,7 @@
   "appId": "1:138155194713:web:a2803e40be6e53fe72b448",
   "apiKey": "AIzaSyBI7GMjqFIuniwdFPcOGDG88-SRErodrXE",
   "authDomain": "gen-lang-client-0306747384.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-projectplanner-39d670f5-5435-4c2e-b5b3-c3de6735339f",
   "storageBucket": "gen-lang-client-0306747384.firebasestorage.app",
   "messagingSenderId": "138155194713",
   "measurementId": "",

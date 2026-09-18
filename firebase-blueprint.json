@@ -1,0 +1,74 @@
+{
+  "entities": {
+    "projects": {
+      "title": "Projects",
+      "description": "Project configurations and meta info",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "startDate": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "tasks": {
+      "title": "Tasks",
+      "description": "Project tasks, milestones, and work breakdown items",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "wbs": { "type": "string" },
+        "name": { "type": "string" },
+        "parentId": { "type": "string" },
+        "assigneeId": { "type": "string" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "duration": { "type": "number" },
+        "progress": { "type": "number" },
+        "status": { "type": "string" },
+        "priority": { "type": "string" },
+        "notes": { "type": "string" },
+        "isMilestone": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "startDate", "endDate"]
+    },
+    "resources": {
+      "title": "Resources",
+      "description": "Team members, roles, and capacity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "email": { "type": "string" },
+        "avatarColor": { "type": "string" },
+        "capacityHoursPerWeek": { "type": "number" },
+        "hourlyRate": { "type": "number" }
+      },
+      "required": ["id", "name", "role", "email"]
+    }
+  },
+  "firestore": {
+    "collections": {
+      "projects": {
+        "schema": "projects",
+        "description": "List of projects"
+      },
+      "tasks": {
+        "schema": "tasks",
+        "description": "Collection of tasks and subtasks"
+      },
+      "resources": {
+        "schema": "resources",
+        "description": "Collection of team members"
+      }
+    }
+  }
+}
