@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Database, Cloud, RefreshCw, UploadCloud, DownloadCloud, CheckCircle2, ShieldCheck, X } from 'lucide-react';
+import { Database, Cloud, RefreshCw, UploadCloud, DownloadCloud, CheckCircle2, ShieldCheck, X, Trash2 } from 'lucide-react';
 import { Task, Resource, ProjectInfo, Language } from '../types';
 import {
   saveTasksToFirestore,
   saveResourcesToFirestore,
   saveProjectToFirestore,
   loadInitialDataFromFirestore,
+  clearFirestoreProjectData,
 } from '../services/firestoreService';
 
 interface FirebaseModalProps {
@@ -35,8 +36,29 @@ export const FirebaseModal: React.FC<FirebaseModalProps> = ({
 }) => {
   const [isPushing, setIsPushing] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [showConfirmClear, setShowConfirmClear] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleClearFirestore = async () => {
+    try {
+      setIsClearing(true);
+      await clearFirestoreProjectData();
+      showToast(
+        language === 'la'
+          ? 'ລຶບຂໍ້ມູນໂຄງການໃນ Firebase Firestore ສຳເລັດແລ້ວ!'
+          : 'Successfully cleared all project data from Firebase Firestore!',
+        'info'
+      );
+      setShowConfirmClear(false);
+    } catch (err: any) {
+      console.error('Failed to clear Firebase:', err);
+      showToast(err.message || 'Failed to clear Firebase Firestore', 'error');
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   const handlePushToFirebase = async () => {
     try {
@@ -190,6 +212,46 @@ export const FirebaseModal: React.FC<FirebaseModalProps> = ({
                 {language === 'la' ? 'ດຶງຂໍ້ມູນລ່າສຸດ (Pull)' : 'Fetch from Firebase (Pull)'}
               </span>
             </button>
+          </div>
+
+          {/* Delete / Clear Cloud Data */}
+          <div className="pt-2 border-t border-slate-200">
+            {showConfirmClear ? (
+              <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-between gap-2">
+                <span className="text-[11px] font-semibold text-rose-800">
+                  {language === 'la' ? 'ຢືນຢັນລຶບຂໍ້ມູນໃນ Cloud Firestore?' : 'Clear all data in Cloud Firestore?'}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    id="btn-confirm-clear-firestore"
+                    onClick={handleClearFirestore}
+                    disabled={isClearing}
+                    className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px] font-bold shadow-xs transition-colors"
+                  >
+                    {isClearing ? 'Clearing...' : language === 'la' ? 'ລຶບແທ້' : 'Yes, Delete'}
+                  </button>
+                  <button
+                    onClick={() => setShowConfirmClear(false)}
+                    className="px-2 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded text-[11px] transition-colors"
+                  >
+                    {language === 'la' ? 'ຍົກເລີກ' : 'Cancel'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                id="btn-open-confirm-clear-firestore"
+                onClick={() => setShowConfirmClear(true)}
+                className="w-full py-1.5 px-3 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-dashed border-rose-300 font-medium text-[11px] flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>
+                  {language === 'la'
+                    ? 'ລຶບຂໍ້ມູນໂຄງການທັງໝົດໃນ Cloud Firestore'
+                    : 'Clear Project Data in Cloud Firestore'}
+                </span>
+              </button>
+            )}
           </div>
         </div>
 

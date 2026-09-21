@@ -7,6 +7,7 @@ import {
   BarChart3,
   FileSpreadsheet,
   Database,
+  Settings,
   RefreshCw,
   ExternalLink,
   LogIn,
@@ -29,6 +30,7 @@ interface HeaderProps {
   onSignOut: () => void;
   onOpenSheetModal: () => void;
   onOpenFirebaseModal: () => void;
+  onOpenProjectSettings: () => void;
   onQuickAddTask: () => void;
   isSyncing: boolean;
   lastSynced: Date | null;
@@ -45,6 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSignOut,
   onOpenSheetModal,
   onOpenFirebaseModal,
+  onOpenProjectSettings,
   onQuickAddTask,
   isSyncing,
   lastSynced,
@@ -62,13 +65,21 @@ export const Header: React.FC<HeaderProps> = ({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
             </svg>
           </div>
-          <div className="flex items-baseline">
-            <h1 className="text-base sm:text-lg font-bold tracking-tight text-white flex items-center">
-              <span>{t.appName}</span>
-              <span className="hidden sm:inline-block text-emerald-400 text-xs sm:text-sm font-normal ml-2">
-                | {project.spreadsheetId ? (language === 'la' ? 'Sync Active (Google Sheets)' : 'Sync Active (Google Sheets)') : 'Google Sheets Sync'}
-              </span>
-            </h1>
+          <div className="flex items-baseline gap-2">
+            <button
+              id="btn-header-project-name"
+              onClick={onOpenProjectSettings}
+              className="text-left group flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+              title={language === 'la' ? 'ຄລິກເພື່ອຈັດການ/ລຶບຂໍ້ມູນໂຄງການ' : 'Click to manage/delete project data'}
+            >
+              <h1 className="text-base sm:text-lg font-bold tracking-tight text-white flex items-center">
+                <span>{project.name || t.appName}</span>
+                <span className="hidden sm:inline-block text-emerald-400 text-xs sm:text-sm font-normal ml-2">
+                  | {project.spreadsheetId ? (language === 'la' ? 'Sync Active (Google Sheets)' : 'Sync Active (Google Sheets)') : 'Google Sheets Sync'}
+                </span>
+              </h1>
+              <Settings className="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-colors" />
+            </button>
           </div>
         </div>
 
@@ -111,11 +122,24 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             id="btn-firebase-database-sync"
             onClick={onOpenFirebaseModal}
-            className="px-3 py-1.5 rounded text-xs font-medium bg-amber-600/90 hover:bg-amber-600 text-white border border-amber-500 transition-colors flex items-center gap-1.5 shadow-xs"
+            className="px-2.5 sm:px-3 py-1.5 rounded text-xs font-medium bg-amber-600/90 hover:bg-amber-600 text-white border border-amber-500 transition-colors flex items-center gap-1.5 shadow-xs"
             title="Firebase Cloud Database"
           >
             <Database className="w-4 h-4 text-amber-200" />
             <span className="hidden sm:inline">Firebase DB</span>
+          </button>
+
+          {/* Project Settings / Delete Project Data Button */}
+          <button
+            id="btn-header-project-settings"
+            onClick={onOpenProjectSettings}
+            className="px-2.5 sm:px-3 py-1.5 rounded text-xs font-medium bg-slate-700/80 hover:bg-slate-700 text-slate-100 hover:text-white border border-slate-600 transition-colors flex items-center gap-1.5 shadow-xs"
+            title={language === 'la' ? 'ຈັດການ ແລະ ລຶບຂໍ້ມູນໂຄງການ' : 'Manage & Clear Project Data'}
+          >
+            <Settings className="w-4 h-4 text-slate-300" />
+            <span className="hidden sm:inline">
+              {language === 'la' ? 'ຈັດການໂຄງການ' : 'Project'}
+            </span>
           </button>
 
           {/* Quick External Link to Google Sheets if connected */}

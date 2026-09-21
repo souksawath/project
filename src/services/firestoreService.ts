@@ -205,8 +205,42 @@ export async function loadInitialDataFromFirestore(projectId: string = PROJECT_I
 }
 
 /**
- * Subscribe to real-time changes in Firestore
+ * Delete all project data (tasks, resources, project doc) from Firestore
  */
+export async function clearFirestoreProjectData(projectId: string = PROJECT_ID): Promise<void> {
+  if (!db) return;
+  try {
+    const batch = writeBatch(db);
+
+    // Delete tasks
+    const tasksSnapshot = await getDocs(collection(db, 'tasks'));
+    tasksSnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (!data.projectId || data.projectId === projectId) {
+        batch.delete(docSnap.ref);
+      }
+    });
+
+    // Delete resources
+    const resSnapshot = await getDocs(collection(db, 'resources'));
+    resSnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (!data.projectId || data.projectId === projectId) {
+        batch.delete(docSnap.ref);
+      }
+    });
+
+    // Delete project doc
+    const projectRef = doc(db, 'projects', projectId);
+    batch.delete(projectRef);
+
+    await batch.commit();
+  } catch (error) {
+    console.error('Error clearing Firestore project data:', error);
+    throw error;
+  }
+}
+
 export function subscribeToFirestore(
   projectId: string = PROJECT_ID,
   onTasksUpdate: (tasks: Task[]) => void,

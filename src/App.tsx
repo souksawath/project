@@ -9,6 +9,7 @@ import { TaskModal } from './components/TaskModal';
 import { ResourceModal } from './components/ResourceModal';
 import { GoogleSheetModal } from './components/GoogleSheetModal';
 import { FirebaseModal } from './components/FirebaseModal';
+import { ProjectSettingsModal } from './components/ProjectSettingsModal';
 import { Task, Resource, ProjectInfo, ViewMode, Language, TaskStatus } from './types';
 import { initialTasks, initialResources, initialProject } from './data/initialData';
 import { translations } from './utils/i18n';
@@ -33,6 +34,7 @@ import {
   saveResourceToFirestore,
   deleteResourceFromFirestore,
   saveProjectToFirestore,
+  clearFirestoreProjectData,
 } from './services/firestoreService';
 import { User } from 'firebase/auth';
 
@@ -110,6 +112,7 @@ export default function App() {
 
   const [isSheetModalOpen, setIsSheetModalOpen] = useState(false);
   const [isFirebaseModalOpen, setIsFirebaseModalOpen] = useState(false);
+  const [isProjectSettingsOpen, setIsProjectSettingsOpen] = useState(false);
   const [isCloudConnected, setIsCloudConnected] = useState(true);
   const [lastCloudSynced, setLastCloudSynced] = useState<Date | null>(null);
 
@@ -492,6 +495,54 @@ export default function App() {
     showToast(language === 'la' ? 'ລຶບສະມາຊິກແລ້ວ' : 'Resource deleted', 'info');
   };
 
+  // Project Actions (Edit, Clear Data, Reset to Demo)
+  const handleUpdateProject = (updated: Partial<ProjectInfo>) => {
+    const newProject = { ...project, ...updated };
+    setProject(newProject);
+    saveProjectToFirestore(newProject).catch((err) => console.warn('Cloud save project warning:', err));
+    showToast(language === 'la' ? 'ບັນທຶກຂໍ້ມູນໂຄງການສຳເລັດ' : 'Project info updated', 'success');
+  };
+
+  const handleClearAllTasks = async () => {
+    setTasks([]);
+    // Remove from local storage
+    localStorage.removeItem(STORAGE_KEYS.TASKS);
+    // Remove from Cloud Firestore
+    try {
+      await clearFirestoreProjectData();
+      showToast(
+        language === 'la'
+          ? 'ລຶບໜ້າວຽກທັງໝົດໃນໂຄງການສຳເລັດແລ້ວ!'
+          : 'All project tasks have been cleared!',
+        'info'
+      );
+    } catch (e) {
+      console.warn('Clear firestore warning:', e);
+      showToast(language === 'la' ? 'ລຶບວຽກໃນເຄື່ອງສຳເລັດແລ້ວ' : 'Local tasks cleared', 'info');
+    }
+  };
+
+  const handleResetProjectToDemo = async () => {
+    setTasks(initialTasks);
+    setResources(initialResources);
+    setProject(initialProject);
+    // Push back demo to cloud
+    try {
+      await saveProjectToFirestore(initialProject);
+      await saveTasksToFirestore(initialTasks);
+      await saveResourcesToFirestore(initialResources);
+      showToast(
+        language === 'la'
+          ? 'ຣີເຊັດເປັນຂໍ້ມູນໂຄງການຕົວຢ່າງສຳເລັດແລ້ວ!'
+          : 'Project reset to default demo template!',
+        'success'
+      );
+    } catch (e) {
+      console.warn('Reset demo error:', e);
+      showToast(language === 'la' ? 'ຣີເຊັດຂໍ້ມູນສຳເລັດ' : 'Demo data restored', 'success');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans antialiased">
       {/* Top Application Header */}
@@ -506,6 +557,7 @@ export default function App() {
         onSignOut={handleSignOut}
         onOpenSheetModal={() => setIsSheetModalOpen(true)}
         onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
+        onOpenProjectSettings={() => setIsProjectSettingsOpen(true)}
         onQuickAddTask={handleOpenAddTask}
         isSyncing={isSyncing}
         lastSynced={lastSynced}
@@ -586,6 +638,7 @@ export default function App() {
         isOpen={isTaskModalOpen}
         onClose={() => setIsTaskModalOpen(false)}
         onSave={handleSaveTask}
+        onDelete={handleDeleteTask}
         task={selectedTask}
         parentTaskId={parentTaskIdForNew}
         tasks={tasks}
@@ -636,6 +689,17 @@ export default function App() {
         showToast={showToast}
         isCloudConnected={isCloudConnected}
         lastCloudSynced={lastCloudSynced}
+      />
+
+      <ProjectSettingsModal
+        isOpen={isProjectSettingsOpen}
+        onClose={() => setIsProjectSettingsOpen(false)}
+        project={project}
+        language={language}
+        onUpdateProject={handleUpdateProject}
+        onClearAllTasks={handleClearAllTasks}
+        onResetProjectToDemo={handleResetProjectToDemo}
+        totalTasks={tasks.length}
       />
     </div>
   );

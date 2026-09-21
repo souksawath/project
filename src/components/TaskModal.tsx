@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, User, Clock, Layers, AlertCircle, FileText } from 'lucide-react';
+import { X, Calendar, User, Clock, Layers, AlertCircle, FileText, Trash2 } from 'lucide-react';
 import { Task, Resource, TaskStatus, TaskPriority, Language } from '../types';
 import { translations } from '../utils/i18n';
 
@@ -7,6 +7,7 @@ interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (taskData: Partial<Task>) => void;
+  onDelete?: (taskId: string) => void;
   task: Task | null;
   parentTaskId: string | null;
   tasks: Task[];
@@ -18,6 +19,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  onDelete,
   task,
   parentTaskId,
   tasks,
@@ -357,20 +359,41 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           </div>
 
           {/* Buttons */}
-          <div className="pt-3 border-t border-slate-200 flex items-center justify-end space-x-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-            >
-              {t.cancel}
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
-            >
-              {t.save}
-            </button>
+          <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
+            <div>
+              {task && onDelete && (
+                <button
+                  type="button"
+                  id="btn-modal-delete-task"
+                  onClick={() => {
+                    if (window.confirm(language === 'la' ? 'ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບວຽກນີ້?' : 'Are you sure you want to delete this task?')) {
+                      onDelete(task.id);
+                      onClose();
+                    }
+                  }}
+                  className="px-3 py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                  <span>{t.delete}</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                {t.cancel}
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
+              >
+                {t.save}
+              </button>
+            </div>
           </div>
         </form>
       </div>
