@@ -36,6 +36,7 @@ import {
   saveProjectToFirestore,
   clearFirestoreProjectData,
 } from './services/firestoreService';
+import { renumberTasksWbs } from './utils/wbsHelper';
 import { User } from 'firebase/auth';
 
 const STORAGE_KEYS = {
@@ -432,10 +433,31 @@ export default function App() {
   };
 
   const handleDeleteTask = (taskId: string) => {
-    // Also delete any subtasks of this task
-    setTasks((prev) => prev.filter((t) => t.id !== taskId && t.parentId !== taskId));
-    deleteTaskFromFirestore(taskId).catch((err) => console.warn('Cloud delete task error:', err));
-    showToast(language === 'la' ? 'ລຶບວຽກສຳເລັດແລ້ວ' : 'Task deleted', 'info');
+    // Delete target task and all of its subtasks
+    const subtaskIds = tasks.filter((t) => t.parentId === taskId).map((t) => t.id);
+    const allDeletedIds = [taskId, ...subtaskIds];
+
+    setTasks((prev) => {
+      const remaining = prev.filter((t) => !allDeletedIds.includes(t.id));
+      // Automatically shift/renumber WBS sequence (e.g. deleting #3 shifts #4 -> #3)
+      const renumbered = renumberTasksWbs(remaining);
+
+      // Save renumbered tasks to Firestore
+      saveTasksToFirestore(renumbered).catch((err) => console.warn('Cloud save renumbered error:', err));
+      return renumbered;
+    });
+
+    // Delete removed documents from Firestore
+    allDeletedIds.forEach((id) => {
+      deleteTaskFromFirestore(id).catch((err) => console.warn('Cloud delete task error:', err));
+    });
+
+    showToast(
+      language === 'la'
+        ? 'ລຶບວຽກສຳເລັດ ແລະ ຍັບລຳດັບເລກທີອັດຕະໂນມັດແລ້ວ'
+        : 'Task deleted and sequence automatically renumbered',
+      'info'
+    );
   };
 
   const handleUpdateStatus = (taskId: string, newStatus: TaskStatus) => {
@@ -540,6 +562,23 @@ export default function App() {
     } catch (e) {
       console.warn('Reset demo error:', e);
       showToast(language === 'la' ? 'ຣີເຊັດຂໍ້ມູນສຳເລັດ' : 'Demo data restored', 'success');
+    }
+  };
+
+  const handleRenumberAllTasks = async () => {
+    const renumbered = renumberTasksWbs(tasks);
+    setTasks(renumbered);
+    try {
+      await saveTasksToFirestore(renumbered);
+      showToast(
+        language === 'la'
+          ? 'ຈັດລຽງລຳດັບເລກທີ 1.0, 2.0... ຄືນໃໝ່ສຳເລັດແລ້ວ!'
+          : 'All tasks renumbered sequentially (1.0, 2.0...)!',
+        'success'
+      );
+    } catch (e) {
+      console.warn('Renumber firestore error:', e);
+      showToast(language === 'la' ? 'ຈັດລຽງລຳດັບເລກທີສຳເລັດ' : 'Tasks renumbered', 'success');
     }
   };
 
@@ -699,6 +738,7 @@ export default function App() {
         onUpdateProject={handleUpdateProject}
         onClearAllTasks={handleClearAllTasks}
         onResetProjectToDemo={handleResetProjectToDemo}
+        onRenumberTasks={handleRenumberAllTasks}
         totalTasks={tasks.length}
       />
     </div>

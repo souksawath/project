@@ -7,6 +7,7 @@ import {
   Trash2,
   Database,
   X,
+  ListOrdered,
 } from 'lucide-react';
 import { ProjectInfo, Language } from '../types';
 
@@ -18,6 +19,7 @@ interface ProjectSettingsModalProps {
   onUpdateProject: (updated: Partial<ProjectInfo>) => void;
   onClearAllTasks: () => void;
   onResetProjectToDemo: () => void;
+  onRenumberTasks: () => void;
   totalTasks: number;
 }
 
@@ -29,6 +31,7 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
   onUpdateProject,
   onClearAllTasks,
   onResetProjectToDemo,
+  onRenumberTasks,
   totalTasks,
 }) => {
   const [name, setName] = useState(project.name);
@@ -138,7 +141,40 @@ export const ProjectSettingsModal: React.FC<ProjectSettingsModalProps> = ({
             </div>
           </form>
 
-          {/* Section 2: Danger Zone - Clear all data or Reset */}
+          {/* Section 2: Re-order & Renumber WBS Sequence */}
+          <div className="pt-2 border-t border-slate-200 space-y-2">
+            <h4 className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+              <ListOrdered className="w-3.5 h-3.5 text-blue-600" />
+              <span>{language === 'la' ? 'ຈັດລຽງເລກທີໂຄງການ (Auto-Renumber)' : 'Re-sequence Tasks (Auto-Renumber)'}</span>
+            </h4>
+            <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-lg flex items-center justify-between gap-3">
+              <div>
+                <p className="font-bold text-blue-950 text-xs">
+                  {language === 'la' ? 'ປັບລຽງລຳດັບເລກທີ 1.0, 2.0, 3.0... ຄືນໃໝ່' : 'Renumber All WBS Codes (1.0, 2.0...)'}
+                </p>
+                <p className="text-[11px] text-blue-800/80 mt-0.5">
+                  {language === 'la'
+                    ? 'ປັບໃຫ້ເລກທີຂອງໂຄງການ ແລະ ໜ້າວຽກຍ່ອຍລຽງຕໍ່ກັນຢ່າງຖືກຕ້ອງ ບໍ່ໃຫ້ມີເລກຂ້າມ.'
+                    : 'Sequences all parent and subtasks seamlessly without missing gaps.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                id="btn-trigger-renumber-all-tasks"
+                onClick={() => {
+                  onRenumberTasks();
+                  onClose();
+                }}
+                disabled={totalTasks === 0}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-xs shrink-0 disabled:opacity-50"
+              >
+                <ListOrdered className="w-3.5 h-3.5" />
+                <span>{language === 'la' ? 'ປັບເລກທີດຽວນີ້' : 'Renumber Now'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Section 3: Danger Zone - Clear all data or Reset */}
           <div className="pt-2 border-t border-slate-200 space-y-3">
             <h4 className="font-bold text-rose-800 text-xs flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
