@@ -42,14 +42,17 @@ export const initAuth = (
   }
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        cachedAccessToken = null;
-        if (onAuthFailure) onAuthFailure();
+      const storedToken = cachedAccessToken || sessionStorage.getItem('google_access_token');
+      if (storedToken) {
+        cachedAccessToken = storedToken;
+        if (onAuthSuccess) onAuthSuccess(user, storedToken);
+      } else {
+        // User is logged in to Firebase
+        if (onAuthSuccess) onAuthSuccess(user, '');
       }
     } else {
       cachedAccessToken = null;
+      sessionStorage.removeItem('google_access_token');
       if (onAuthFailure) onAuthFailure();
     }
   });
@@ -63,12 +66,12 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     isSigningIn = true;
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Failed to get access token from Firebase Auth');
+    const token = credential?.accessToken || '';
+    if (token) {
+      cachedAccessToken = token;
+      sessionStorage.setItem('google_access_token', token);
     }
-
-    cachedAccessToken = credential.accessToken;
-    return { user: result.user, accessToken: cachedAccessToken };
+    return { user: result.user, accessToken: token };
   } catch (error: any) {
     console.error('Sign in error:', error);
     throw error;
@@ -78,11 +81,16 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
 };
 
 export const getAccessToken = async (): Promise<string | null> => {
-  return cachedAccessToken;
+  return cachedAccessToken || sessionStorage.getItem('google_access_token');
 };
 
 export const setCachedAccessToken = (token: string | null) => {
   cachedAccessToken = token;
+  if (token) {
+    sessionStorage.setItem('google_access_token', token);
+  } else {
+    sessionStorage.removeItem('google_access_token');
+  }
 };
 
 export const logout = async () => {
@@ -90,4 +98,5 @@ export const logout = async () => {
     await signOut(auth);
   }
   cachedAccessToken = null;
+  sessionStorage.removeItem('google_access_token');
 };

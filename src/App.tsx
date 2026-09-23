@@ -46,6 +46,39 @@ const STORAGE_KEYS = {
   LANGUAGE: 'pm_language_pref',
 };
 
+function sanitizeResource(r: any, index: number): Resource {
+  return {
+    id: r?.id ? String(r.id) : `res-${index + 1}`,
+    name: r?.name ? String(r.name) : `ສະມາຊິກ ${index + 1}`,
+    role: r?.role ? String(r.role) : 'Team Member',
+    email: r?.email ? String(r.email) : '',
+    avatarColor: r?.avatarColor ? String(r.avatarColor) : '#2563eb',
+    capacityHoursPerWeek: Number(r?.capacityHoursPerWeek) || 40,
+    hourlyRate: r?.hourlyRate ? Number(r.hourlyRate) : undefined,
+  };
+}
+
+function sanitizeTask(t: any, index: number): Task {
+  return {
+    id: t?.id ? String(t.id) : `task-${index + 1}`,
+    name: t?.name ? String(t.name) : 'Untitled Task',
+    wbs: t?.wbs ? String(t.wbs) : `${index + 1}.0`,
+    parentId: t?.parentId || null,
+    assigneeId: t?.assigneeId ? String(t.assigneeId) : '',
+    startDate: t?.startDate ? String(t.startDate) : new Date().toISOString().split('T')[0],
+    endDate: t?.endDate ? String(t.endDate) : new Date().toISOString().split('T')[0],
+    duration: Number(t?.duration) || 1,
+    progress: Math.min(100, Math.max(0, Number(t?.progress) || 0)),
+    status: (['not_started', 'in_progress', 'in_review', 'completed', 'blocked'].includes(t?.status)
+      ? t.status
+      : 'not_started') as TaskStatus,
+    priority: (['low', 'medium', 'high', 'critical'].includes(t?.priority)
+      ? t.priority
+      : 'medium') as any,
+    notes: t?.notes ? String(t.notes) : '',
+  };
+}
+
 export default function App() {
   // Localization State (default to Lao 'la' as prompt was in Lao)
   const [language, setLanguage] = useState<Language>(() => {
@@ -60,37 +93,44 @@ export default function App() {
 
   // Core Project Data
   const [project, setProject] = useState<ProjectInfo>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PROJECT);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse saved project info', e);
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.PROJECT);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && parsed.name) return parsed;
       }
+    } catch (e) {
+      console.error('Failed to parse saved project info', e);
     }
     return initialProject;
   });
 
   const [tasks, setTasks] = useState<Task[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.TASKS);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse saved tasks', e);
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.TASKS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((t, idx) => sanitizeTask(t, idx));
+        }
       }
+    } catch (e) {
+      console.error('Failed to parse saved tasks', e);
     }
     return initialTasks;
   });
 
   const [resources, setResources] = useState<Resource[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.RESOURCES);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse saved resources', e);
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.RESOURCES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((r, idx) => sanitizeResource(r, idx));
+        }
       }
+    } catch (e) {
+      console.error('Failed to parse saved resources', e);
     }
     return initialResources;
   });
@@ -122,13 +162,13 @@ export default function App() {
     let isMounted = true;
     loadInitialDataFromFirestore().then((cloudData) => {
       if (!isMounted) return;
-      if (cloudData.tasks && cloudData.tasks.length > 0) {
-        setTasks(cloudData.tasks);
+      if (cloudData.tasks && Array.isArray(cloudData.tasks) && cloudData.tasks.length > 0) {
+        setTasks(cloudData.tasks.map((t, i) => sanitizeTask(t, i)));
       }
-      if (cloudData.resources && cloudData.resources.length > 0) {
-        setResources(cloudData.resources);
+      if (cloudData.resources && Array.isArray(cloudData.resources) && cloudData.resources.length > 0) {
+        setResources(cloudData.resources.map((r, i) => sanitizeResource(r, i)));
       }
-      if (cloudData.project) {
+      if (cloudData.project && typeof cloudData.project === 'object' && cloudData.project.name) {
         setProject(cloudData.project);
       }
       if (cloudData.tasks || cloudData.resources) {

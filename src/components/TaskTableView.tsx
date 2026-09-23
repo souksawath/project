@@ -304,10 +304,10 @@ export const TaskTableView: React.FC<TaskTableViewProps> = ({
                         {assignee && (
                           <div
                             className="w-4 h-4 rounded-full text-[9px] text-white font-bold flex items-center justify-center shrink-0"
-                            style={{ backgroundColor: assignee.avatarColor }}
-                            title={`${assignee.name} (${assignee.role})`}
+                            style={{ backgroundColor: assignee.avatarColor || '#3b82f6' }}
+                            title={`${assignee.name || ''} (${assignee.role || ''})`}
                           >
-                            {assignee.name.charAt(0)}
+                            {(assignee.name || 'U').charAt(0).toUpperCase()}
                           </div>
                         )}
                         {onUpdateAssignee ? (
@@ -323,9 +323,12 @@ export const TaskTableView: React.FC<TaskTableViewProps> = ({
                             className="text-[11px] py-0.5 px-1 bg-transparent hover:bg-white hover:border-slate-300 border border-transparent rounded cursor-pointer outline-none text-slate-700 font-medium truncate flex-1"
                             title={language === 'la' ? 'ຄລິກເພື່ອປ່ຽນຜູ້ຮັບຜິດຊອບ' : 'Click to change assignee'}
                           >
-                            {resources.map((r) => (
+                            <option value="">
+                              -- {language === 'la' ? 'ບໍ່ໄດ້ກຳນົດ' : 'Unassigned'} --
+                            </option>
+                            {(resources || []).map((r) => (
                               <option key={r.id} value={r.id}>
-                                {r.name} ({r.role})
+                                {r.name || 'Member'} ({r.role || ''})
                               </option>
                             ))}
                             <option value="__add_new__">

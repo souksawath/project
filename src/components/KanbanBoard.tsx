@@ -152,15 +152,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                       {/* Bottom Footer: Assignee & Move Buttons */}
                       <div className="pt-1 border-t border-slate-100 flex items-center justify-between">
                         {assignee ? (
-                          <div className="flex items-center gap-1.5" title={assignee.name}>
+                          <div className="flex items-center gap-1.5" title={assignee.name || ''}>
                             <div
                               className="w-4 h-4 rounded-full text-[9px] text-white font-bold flex items-center justify-center shrink-0"
-                              style={{ backgroundColor: assignee.avatarColor }}
+                              style={{ backgroundColor: assignee.avatarColor || '#3b82f6' }}
                             >
-                              {assignee.name.charAt(0)}
+                              {(assignee.name || 'U').charAt(0).toUpperCase()}
                             </div>
                             <span className="text-[10px] text-slate-600 truncate max-w-[85px]">
-                              {assignee.name.split(' ')[0]}
+                              {((assignee.name || '').split(' ')[0]) || 'Member'}
                             </span>
                           </div>
                         ) : (

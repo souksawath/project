@@ -181,13 +181,13 @@ export const ProjectAnalytics: React.FC<ProjectAnalyticsProps> = ({
               <div key={r.id} className="p-2.5 bg-slate-50 rounded border border-slate-200 flex items-center gap-2.5">
                 <div
                   className="w-8 h-8 rounded text-white font-bold text-xs flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: r.avatarColor }}
+                  style={{ backgroundColor: r.avatarColor || '#3b82f6' }}
                 >
-                  {r.name.charAt(0)}
+                  {(r.name || 'U').charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0 text-xs">
-                  <h4 className="font-bold text-slate-900 truncate text-[11px]">{r.name}</h4>
-                  <p className="text-[10px] text-slate-500 truncate">{r.role}</p>
+                  <h4 className="font-bold text-slate-900 truncate text-[11px]">{r.name || 'Member'}</h4>
+                  <p className="text-[10px] text-slate-500 truncate">{r.role || ''}</p>
                   <p className="text-[10px] text-blue-600 font-medium mt-0.5">
                     {assigned.length} tasks ({completed} done)
                   </p>

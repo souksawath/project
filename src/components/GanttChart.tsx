@@ -339,11 +339,12 @@ export const GanttChart: React.FC<GanttChartProps> = ({
                       <>
                         <div
                           className="w-4 h-4 rounded-full text-[9px] text-white font-bold flex items-center justify-center shrink-0"
-                          style={{ backgroundColor: assignee.avatarColor }}
+                          style={{ backgroundColor: assignee.avatarColor || '#3b82f6' }}
+                          title={assignee.name || ''}
                         >
-                          {assignee.name.charAt(0)}
+                          {(assignee.name || 'U').charAt(0).toUpperCase()}
                         </div>
-                        <span className="truncate">{assignee.name.split(' ')[0]}</span>
+                        <span className="truncate">{((assignee.name || '').split(' ')[0]) || 'Member'}</span>
                       </>
                     ) : (
                       <span className="text-slate-400">-</span>

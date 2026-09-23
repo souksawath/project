@@ -38,27 +38,29 @@ export const ResourceManagement: React.FC<ResourceManagementProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredResources = useMemo(() => {
+    if (!Array.isArray(resources)) return [];
     if (!searchQuery.trim()) return resources;
     const q = searchQuery.toLowerCase();
     return resources.filter(
       (r) =>
-        r.name.toLowerCase().includes(q) ||
-        r.role.toLowerCase().includes(q) ||
-        r.email.toLowerCase().includes(q)
+        (r?.name || '').toLowerCase().includes(q) ||
+        (r?.role || '').toLowerCase().includes(q) ||
+        (r?.email || '').toLowerCase().includes(q)
     );
   }, [resources, searchQuery]);
 
   // Calculate workload and active tasks for each resource
   const resourceStats = useMemo(() => {
+    const validTasks = Array.isArray(tasks) ? tasks : [];
     return filteredResources.map((resource) => {
-      const assignedTasks = tasks.filter((task) => task.assigneeId === resource.id);
+      const assignedTasks = validTasks.filter((task) => task.assigneeId === resource.id);
       const activeTasks = assignedTasks.filter(
         (task) => task.status === 'in_progress' || task.status === 'not_started' || task.status === 'in_review'
       );
       const completedTasks = assignedTasks.filter((task) => task.status === 'completed');
 
       // Total duration in days of active tasks
-      const activeDays = activeTasks.reduce((acc, curr) => acc + curr.duration, 0);
+      const activeDays = activeTasks.reduce((acc, curr) => acc + (curr.duration || 0), 0);
 
       // Simple workload estimation (relative to a 20-working-day monthly baseline)
       const workloadPercent = Math.min(180, Math.round((activeDays / 15) * 100));
@@ -141,18 +143,18 @@ export const ResourceManagement: React.FC<ResourceManagementProps> = ({
                   >
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-xs shrink-0"
-                      style={{ backgroundColor: resource.avatarColor }}
+                      style={{ backgroundColor: resource.avatarColor || '#3b82f6' }}
                     >
-                      {resource.name.charAt(0).toUpperCase()}
+                      {(resource.name || 'U').charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <h3 className="text-xs font-bold text-slate-900 leading-tight group-hover:text-blue-600 transition-colors flex items-center gap-1.5">
-                        <span>{resource.name}</span>
+                        <span>{resource.name || 'ບໍ່ມີຊື່'}</span>
                         <Edit2 className="w-3 h-3 text-slate-300 group-hover:text-blue-500 transition-colors" />
                       </h3>
                       <p className="text-[11px] text-blue-600 font-medium flex items-center gap-1 mt-0.5">
                         <Briefcase className="w-3 h-3" />
-                        <span>{resource.role}</span>
+                        <span>{resource.role || 'Member'}</span>
                       </p>
                     </div>
                   </div>
