@@ -58,15 +58,25 @@ function sanitizeResource(r: any, index: number): Resource {
   };
 }
 
+function isValidDateStr(val: any): boolean {
+  if (!val || typeof val !== 'string') return false;
+  const d = new Date(val);
+  return !isNaN(d.getTime());
+}
+
 function sanitizeTask(t: any, index: number): Task {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const sDate = isValidDateStr(t?.startDate) ? String(t.startDate) : todayStr;
+  const eDate = isValidDateStr(t?.endDate) ? String(t.endDate) : sDate;
+
   return {
     id: t?.id ? String(t.id) : `task-${index + 1}`,
     name: t?.name ? String(t.name) : 'Untitled Task',
     wbs: t?.wbs ? String(t.wbs) : `${index + 1}.0`,
     parentId: t?.parentId || null,
     assigneeId: t?.assigneeId ? String(t.assigneeId) : '',
-    startDate: t?.startDate ? String(t.startDate) : new Date().toISOString().split('T')[0],
-    endDate: t?.endDate ? String(t.endDate) : new Date().toISOString().split('T')[0],
+    startDate: sDate,
+    endDate: eDate,
     duration: Number(t?.duration) || 1,
     progress: Math.min(100, Math.max(0, Number(t?.progress) || 0)),
     status: (['not_started', 'in_progress', 'in_review', 'completed', 'blocked'].includes(t?.status)

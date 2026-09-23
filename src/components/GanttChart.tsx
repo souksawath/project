@@ -83,24 +83,45 @@ export const GanttChart: React.FC<GanttChartProps> = ({
 
   // Compute timeline boundaries
   const { minDate, maxDate, totalDays, datesList } = useMemo(() => {
-    if (tasks.length === 0) {
-      const now = new Date();
-      return {
-        minDate: new Date(now.getFullYear(), now.getMonth(), 1),
-        maxDate: new Date(now.getFullYear(), now.getMonth() + 1, 0),
-        totalDays: 30,
-        datesList: [],
-      };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const parseValidDate = (dateVal: any, fallback: Date): Date => {
+      if (!dateVal) return fallback;
+      const d = new Date(dateVal);
+      return isNaN(d.getTime()) ? fallback : d;
+    };
+
+    if (!Array.isArray(tasks) || tasks.length === 0) {
+      const minD = new Date(today.getFullYear(), today.getMonth(), 1);
+      const maxD = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      const diff = Math.min(60, Math.max(15, Math.ceil((maxD.getTime() - minD.getTime()) / (1000 * 60 * 60 * 24)) + 1));
+      const list: Date[] = [];
+      for (let i = 0; i < diff; i++) {
+        const d = new Date(minD);
+        d.setDate(minD.getDate() + i);
+        list.push(d);
+      }
+      return { minDate: minD, maxDate: maxD, totalDays: diff, datesList: list };
     }
 
-    let min = new Date(tasks[0].startDate).getTime();
-    let max = new Date(tasks[0].endDate).getTime();
+    let min = today.getTime();
+    let max = today.getTime() + 14 * 24 * 60 * 60 * 1000;
+    let initialized = false;
 
     tasks.forEach((task) => {
-      const start = new Date(task.startDate).getTime();
-      const end = new Date(task.endDate).getTime();
-      if (start < min) min = start;
-      if (end > max) max = end;
+      const s = parseValidDate(task?.startDate, today).getTime();
+      const e = parseValidDate(task?.endDate, today).getTime();
+      if (!initialized) {
+        min = Math.min(s, e);
+        max = Math.max(s, e);
+        initialized = true;
+      } else {
+        if (s < min) min = s;
+        if (e < min) min = e;
+        if (s > max) max = s;
+        if (e > max) max = e;
+      }
     });
 
     // Add padding days
@@ -109,7 +130,10 @@ export const GanttChart: React.FC<GanttChartProps> = ({
     const maxD = new Date(max);
     maxD.setDate(maxD.getDate() + 10);
 
-    const diffDays = Math.ceil((maxD.getTime() - minD.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    // Guard against negative diff or huge diff (cap at 365 to prevent memory crash)
+    let diffDays = Math.ceil((maxD.getTime() - minD.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    if (isNaN(diffDays) || diffDays < 7) diffDays = 30;
+    if (diffDays > 365) diffDays = 365;
 
     const list: Date[] = [];
     for (let i = 0; i < diffDays; i++) {
@@ -132,8 +156,11 @@ export const GanttChart: React.FC<GanttChartProps> = ({
 
   // Helper to calculate X coordinate for date
   const getXForDate = (dateStr: string): number => {
+    if (!dateStr || !minDate) return 0;
     const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 0;
     const diff = (d.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24);
+    if (isNaN(diff)) return 0;
     return Math.max(0, diff * dayWidth);
   };
 
@@ -141,7 +168,13 @@ export const GanttChart: React.FC<GanttChartProps> = ({
   const getWidthForTask = (startDateStr: string, endDateStr: string, durationDays: number): number => {
     const s = new Date(startDateStr);
     const e = new Date(endDateStr);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) {
+      return Math.max(dayWidth * 0.8, (durationDays || 1) * dayWidth);
+    }
     const diffDays = Math.max(1, (e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24) + 1);
+    if (isNaN(diffDays)) {
+      return Math.max(dayWidth * 0.8, (durationDays || 1) * dayWidth);
+    }
     return Math.max(dayWidth * 0.8, diffDays * dayWidth);
   };
 
@@ -149,7 +182,9 @@ export const GanttChart: React.FC<GanttChartProps> = ({
   const todayX = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    if (!minDate || isNaN(minDate.getTime())) return 0;
     const diff = (today.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24);
+    if (isNaN(diff)) return 0;
     return diff * dayWidth;
   }, [minDate, dayWidth]);
 
@@ -411,7 +446,7 @@ export const GanttChart: React.FC<GanttChartProps> = ({
                           ? 'bg-slate-50/50 text-slate-300 italic'
                           : 'text-slate-400'
                       }`}
-                      title={d.toISOString().split('T')[0]}
+                      title={!isNaN(d.getTime()) ? d.toISOString().split('T')[0] : ''}
                     >
                       <span className="leading-tight">{weekday}</span>
                       <span className="font-bold leading-tight">{dayNum}</span>

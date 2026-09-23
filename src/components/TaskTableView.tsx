@@ -336,8 +336,8 @@ export const TaskTableView: React.FC<TaskTableViewProps> = ({
                             </option>
                           </select>
                         ) : (
-                          <span className="text-slate-700 truncate" title={assignee?.name}>
-                            {assignee ? assignee.name.split(' ')[0] : '-'}
+                          <span className="text-slate-700 truncate" title={assignee?.name || ''}>
+                            {assignee ? ((assignee.name || '').split(' ')[0] || 'Member') : '-'}
                           </span>
                         )}
 
