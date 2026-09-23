@@ -4,7 +4,7 @@ export const translations = {
     appName: 'Project Planner',
     ganttView: 'ແຜນວາດ Gantt Chart',
     tableView: 'ຕາຕະລາງ WBS & ວຽກ',
-    resourceView: 'ຈັດການຊັບພະຍາກອນ',
+    resourceView: 'ຈັດການຜູ້ຮັບຜິດຊອບ & ທີມງານ',
     boardView: 'ກະດານ Kanban',
     analyticsView: 'ພາບລວມ & ລາຍງານ',
     
@@ -14,7 +14,7 @@ export const translations = {
     assignee: 'ຜູ້ຮັບຜິດຊອບ',
     duration: 'ໄລຍະເວລາ',
     status: 'ສະຖານະ',
-    resources: 'ຊັບພະຍາກອນ',
+    resources: 'ລາຍຊື່ຜູ້ຮັບຜິດຊອບ',
     startDate: 'ວັນທີເລີ່ມຕົ້ນ',
     endDate: 'ວັນທີສິ້ນສຸດ',
     progress: 'ຄວາມຄືບໜ້າ',
@@ -39,7 +39,8 @@ export const translations = {
     // Actions
     addTask: 'ເພີ່ມວຽກໃໝ່',
     addSubtask: 'ເພີ່ມວຽກຍ່ອຍ',
-    addResource: 'ເພີ່ມສະມາຊິກ/ຊັບພະຍາກອນ',
+    addResource: 'ເພີ່ມຜູ້ຮັບຜິດຊອບໃໝ່',
+    editResource: 'ແກ້ໄຂຊື່ຜູ້ຮັບຜິດຊອບ',
     edit: 'ແກ້ໄຂ',
     delete: 'ລຶບ',
     save: 'ບັນທຶກ',
@@ -118,7 +119,8 @@ export const translations = {
     
     addTask: 'Add Task',
     addSubtask: 'Add Subtask',
-    addResource: 'Add Resource',
+    addResource: 'Add Assignee / Resource',
+    editResource: 'Edit Assignee Name',
     edit: 'Edit',
     delete: 'Delete',
     save: 'Save',

@@ -489,16 +489,31 @@ export default function App() {
   };
 
   const handleSaveResource = (resourceData: Resource) => {
-    if (selectedResource) {
-      setResources((prev) =>
-        prev.map((r) => (r.id === selectedResource.id ? resourceData : r))
+    setResources((prev) => {
+      const exists = prev.some((r) => r.id === resourceData.id);
+      if (exists) {
+        return prev.map((r) => (r.id === resourceData.id ? resourceData : r));
+      }
+      return [...prev, resourceData];
+    });
+    saveResourceToFirestore(resourceData).catch((err) => console.warn('Cloud save resource error:', err));
+    showToast(
+      language === 'la'
+        ? `ບັນທຶກຂໍ້ມູນ ${resourceData.name} ສຳເລັດແລ້ວ`
+        : `Saved ${resourceData.name} successfully`,
+      'success'
+    );
+  };
+
+  const handleUpdateAssignee = (taskId: string, newAssigneeId: string) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === taskId ? { ...t, assigneeId: newAssigneeId } : t))
+    );
+    const target = tasks.find((t) => t.id === taskId);
+    if (target) {
+      saveTaskToFirestore({ ...target, assigneeId: newAssigneeId }).catch((err) =>
+        console.warn('Update assignee firestore warning:', err)
       );
-      saveResourceToFirestore(resourceData).catch((err) => console.warn('Cloud save resource error:', err));
-      showToast(language === 'la' ? 'ອັບເດດຂໍ້ມູນສະມາຊິກສຳເລັດ' : 'Resource updated');
-    } else {
-      setResources((prev) => [...prev, resourceData]);
-      saveResourceToFirestore(resourceData).catch((err) => console.warn('Cloud save resource error:', err));
-      showToast(language === 'la' ? 'ເພີ່ມສະມາຊິກໃໝ່ສຳເລັດ' : 'New resource added');
     }
   };
 
@@ -598,6 +613,7 @@ export default function App() {
         onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
         onOpenProjectSettings={() => setIsProjectSettingsOpen(true)}
         onQuickAddTask={handleOpenAddTask}
+        onQuickAddResource={handleOpenAddResource}
         isSyncing={isSyncing}
         lastSynced={lastSynced}
       />
@@ -638,6 +654,9 @@ export default function App() {
             onAddTask={handleOpenAddTask}
             onDeleteTask={handleDeleteTask}
             onUpdateStatus={handleUpdateStatus}
+            onUpdateAssignee={handleUpdateAssignee}
+            onAddResource={handleOpenAddResource}
+            onEditResource={handleOpenEditResource}
           />
         )}
 
@@ -683,12 +702,14 @@ export default function App() {
         tasks={tasks}
         resources={resources}
         language={language}
+        onSaveResource={handleSaveResource}
       />
 
       <ResourceModal
         isOpen={isResourceModalOpen}
         onClose={() => setIsResourceModalOpen(false)}
         onSave={handleSaveResource}
+        onDelete={handleDeleteResource}
         resource={selectedResource}
         language={language}
       />

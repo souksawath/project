@@ -27,6 +27,9 @@ interface TaskTableViewProps {
   onAddTask: (parentId?: string | null) => void;
   onDeleteTask: (taskId: string) => void;
   onUpdateStatus: (taskId: string, newStatus: TaskStatus) => void;
+  onUpdateAssignee?: (taskId: string, newAssigneeId: string) => void;
+  onAddResource?: () => void;
+  onEditResource?: (resource: Resource) => void;
 }
 
 export const TaskTableView: React.FC<TaskTableViewProps> = ({
@@ -37,6 +40,9 @@ export const TaskTableView: React.FC<TaskTableViewProps> = ({
   onAddTask,
   onDeleteTask,
   onUpdateStatus,
+  onUpdateAssignee,
+  onAddResource,
+  onEditResource,
 }) => {
   const t = translations[language];
   const [searchTerm, setSearchTerm] = useState('');
@@ -197,7 +203,22 @@ export const TaskTableView: React.FC<TaskTableViewProps> = ({
               <th className="px-3 py-2 font-bold w-12 text-center">#</th>
               <th className="px-3 py-2 font-bold min-w-[240px]">{language === 'la' ? 'ຊື່ວຽກ ແລະ ໜ້າວຽກຍ່ອຍ' : 'Task & Subtasks'}</th>
               <th className="px-3 py-2 font-bold w-24">{t.subtasks}</th>
-              <th className="px-3 py-2 font-bold w-32">{t.assignee}</th>
+              <th className="px-3 py-2 font-bold w-40">
+                <div className="flex items-center justify-between gap-1">
+                  <span>{t.assignee}</span>
+                  {onAddResource && (
+                    <button
+                      type="button"
+                      onClick={onAddResource}
+                      className="p-0.5 rounded text-blue-600 hover:text-blue-800 hover:bg-blue-100 transition-colors cursor-pointer flex items-center gap-0.5 font-normal lowercase text-[9px]"
+                      title={language === 'la' ? 'ເພີ່ມຜູ້ຮັບຜິດຊອບໃໝ່' : 'Add new assignee'}
+                    >
+                      <Plus className="w-2.5 h-2.5" />
+                      <span>{language === 'la' ? 'ເພີ່ມ' : 'add'}</span>
+                    </button>
+                  )}
+                </div>
+              </th>
               <th className="px-3 py-2 font-bold w-24">{t.startDate}</th>
               <th className="px-3 py-2 font-bold w-24">{t.endDate}</th>
               <th className="px-3 py-2 font-bold w-16 text-center">{t.duration}</th>
@@ -279,21 +300,55 @@ export const TaskTableView: React.FC<TaskTableViewProps> = ({
 
                     {/* Assignee */}
                     <td className="px-3 py-2 text-[11px]">
-                      {assignee ? (
-                        <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1 group/assignee max-w-[150px]">
+                        {assignee && (
                           <div
                             className="w-4 h-4 rounded-full text-[9px] text-white font-bold flex items-center justify-center shrink-0"
                             style={{ backgroundColor: assignee.avatarColor }}
+                            title={`${assignee.name} (${assignee.role})`}
                           >
                             {assignee.name.charAt(0)}
                           </div>
-                          <span className="text-slate-700 truncate max-w-[110px]" title={assignee.name}>
-                            {assignee.name.split(' ')[0]}
+                        )}
+                        {onUpdateAssignee ? (
+                          <select
+                            value={task.assigneeId || ''}
+                            onChange={(e) => {
+                              if (e.target.value === '__add_new__') {
+                                onAddResource?.();
+                              } else {
+                                onUpdateAssignee(task.id, e.target.value);
+                              }
+                            }}
+                            className="text-[11px] py-0.5 px-1 bg-transparent hover:bg-white hover:border-slate-300 border border-transparent rounded cursor-pointer outline-none text-slate-700 font-medium truncate flex-1"
+                            title={language === 'la' ? 'ຄລິກເພື່ອປ່ຽນຜູ້ຮັບຜິດຊອບ' : 'Click to change assignee'}
+                          >
+                            {resources.map((r) => (
+                              <option key={r.id} value={r.id}>
+                                {r.name} ({r.role})
+                              </option>
+                            ))}
+                            <option value="__add_new__">
+                              + {language === 'la' ? 'ເພີ່ມໃໝ່...' : 'Add New...'}
+                            </option>
+                          </select>
+                        ) : (
+                          <span className="text-slate-700 truncate" title={assignee?.name}>
+                            {assignee ? assignee.name.split(' ')[0] : '-'}
                           </span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400">-</span>
-                      )}
+                        )}
+
+                        {assignee && onEditResource && (
+                          <button
+                            type="button"
+                            onClick={() => onEditResource(assignee)}
+                            className="opacity-0 group-hover/assignee:opacity-100 p-0.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-opacity cursor-pointer shrink-0"
+                            title={language === 'la' ? 'ແກ້ໄຂຊື່ຜູ້ຮັບຜິດຊອບນີ້' : 'Edit assignee details'}
+                          >
+                            <Edit2 className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
 
                     {/* Start & End Date */}

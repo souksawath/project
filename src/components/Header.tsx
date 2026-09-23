@@ -32,6 +32,7 @@ interface HeaderProps {
   onOpenFirebaseModal: () => void;
   onOpenProjectSettings: () => void;
   onQuickAddTask: () => void;
+  onQuickAddResource?: () => void;
   isSyncing: boolean;
   lastSynced: Date | null;
 }
@@ -49,6 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenFirebaseModal,
   onOpenProjectSettings,
   onQuickAddTask,
+  onQuickAddResource,
   isSyncing,
   lastSynced,
 }) => {
@@ -89,10 +91,27 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             id="btn-header-quick-add-task"
             onClick={onQuickAddTask}
-            className="bg-white/10 hover:bg-white/20 text-white px-2.5 sm:px-3 py-1.5 rounded text-xs font-medium border border-white/20 transition-colors flex items-center gap-1.5"
+            className="bg-white/10 hover:bg-white/20 text-white px-2.5 sm:px-3 py-1.5 rounded text-xs font-medium border border-white/20 transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <span>+</span>
             <span>{language === 'la' ? 'ເພີ່ມໜ້າວຽກ' : 'Add Task'}</span>
+          </button>
+
+          {/* Quick Assignees Manager Button */}
+          <button
+            id="btn-header-quick-manage-resources"
+            onClick={() => {
+              if (onQuickAddResource) {
+                onQuickAddResource();
+              } else {
+                onViewModeChange('resources');
+              }
+            }}
+            className="bg-white/10 hover:bg-white/20 text-white px-2.5 sm:px-3 py-1.5 rounded text-xs font-medium border border-white/20 transition-colors flex items-center gap-1.5 cursor-pointer"
+            title={language === 'la' ? 'ຈັດການ ແລະ ເພີ່ມລາຍຊື່ຜູ້ຮັບຜິດຊອບ' : 'Manage and add assignees'}
+          >
+            <Users className="w-3.5 h-3.5 text-blue-300" />
+            <span className="hidden sm:inline">{language === 'la' ? 'ຜູ້ຮັບຜິດຊອບ' : 'Assignees'}</span>
           </button>
 
           {/* Google Sheets Sync Modal trigger */}
@@ -242,7 +261,7 @@ export const Header: React.FC<HeaderProps> = ({
           }`}
         >
           <Users className="w-3.5 h-3.5" />
-          <span>Resource Usage</span>
+          <span>{language === 'la' ? 'ຜູ້ຮັບຜິດຊອບ & ທີມງານ' : 'Assignees & Team'}</span>
         </button>
 
         <button

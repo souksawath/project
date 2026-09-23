@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, User, Briefcase, Mail, Clock, DollarSign, Palette } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, User, Briefcase, Mail, Clock, DollarSign, Palette, Trash2 } from 'lucide-react';
 import { Resource, Language } from '../types';
 import { translations } from '../utils/i18n';
 
@@ -7,6 +7,7 @@ interface ResourceModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (resource: Resource) => void;
+  onDelete?: (resourceId: string) => void;
   resource: Resource | null;
   language: Language;
 }
@@ -26,10 +27,12 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  onDelete,
   resource,
   language,
 }) => {
   const t = translations[language];
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
@@ -54,6 +57,12 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
       setHourlyRate(undefined);
       setAvatarColor(COLOR_OPTIONS[Math.floor(Math.random() * COLOR_OPTIONS.length)]);
     }
+
+    if (isOpen) {
+      setTimeout(() => {
+        nameInputRef.current?.focus();
+      }, 50);
+    }
   }, [resource, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -63,8 +72,8 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
     onSave({
       id: resource ? resource.id : `res-${Date.now()}`,
       name: name.trim(),
-      role: role.trim() || 'Team Member',
-      email: email.trim() || `${name.toLowerCase().replace(/\s+/g, '.')}@company.la`,
+      role: role.trim() || (language === 'la' ? 'ສະມາຊິກທີມ' : 'Team Member'),
+      email: email.trim() || `${name.trim().toLowerCase().replace(/\s+/g, '.')}@company.la`,
       capacityHoursPerWeek: capacity || 40,
       hourlyRate,
       avatarColor,
@@ -79,21 +88,21 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2.5">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-xs"
               style={{ backgroundColor: avatarColor }}
             >
-              {name ? name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
+              {name ? name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900">
                 {resource
-                  ? language === 'la' ? 'ແກ້ໄຂຂໍ້ມູນສະມາຊິກ' : 'Edit Resource'
-                  : language === 'la' ? 'ເພີ່ມສະມາຊິກ/ຊັບພະຍາກອນໃໝ່' : 'Add New Resource'}
+                  ? language === 'la' ? 'ແກ້ໄຂຊື່ ແລະ ຂໍ້ມູນຜູ້ຮັບຜິດຊອບ' : 'Edit Assignee / Resource'
+                  : language === 'la' ? 'ເພີ່ມຜູ້ຮັບຜິດຊອບໃໝ່' : 'Add New Assignee / Resource'}
               </h3>
               <p className="text-xs text-slate-500">
-                {language === 'la' ? 'ກຳນົດຊື່, ຕຳແໜ່ງ ແລະ ຄວາມສາມາດ' : 'Team member details'}
+                {language === 'la' ? 'ກຳນົດຊື່, ຕຳແໜ່ງ ແລະ ຂໍ້ມູນຂອງຜູ້ຮັບຜິດຊອບ' : 'Set name, role, and capacity details'}
               </p>
             </div>
           </div>
@@ -110,9 +119,10 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
           {/* Name */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              {language === 'la' ? 'ຊື່ ແລະ ນາມສະກຸນ' : 'Full Name'} *
+              {language === 'la' ? 'ຊື່ ແລະ ນາມສະກຸນ ຜູ້ຮັບຜິດຊອບ' : 'Full Name'} *
             </label>
             <input
+              ref={nameInputRef}
               id="modal-resource-name"
               type="text"
               required
@@ -126,7 +136,7 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
           {/* Role */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
-              {t.role} *
+              {language === 'la' ? 'ຕຳແໜ່ງ / ໜ້າທີ່ຮັບຜິດຊອບ' : 'Role / Position'} *
             </label>
             <input
               id="modal-resource-role"
@@ -134,7 +144,7 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
               required
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              placeholder={language === 'la' ? 'ຕົວຢ່າງ: Project Manager, Lead Developer...' : 'e.g. Frontend Developer'}
+              placeholder={language === 'la' ? 'ຕົວຢ່າງ: ວິສະວະກອນໂຄງການ, ຫົວໜ້າທີມ...' : 'e.g. Lead Engineer, Designer'}
               className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
             />
           </div>
@@ -190,7 +200,7 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
               <Palette className="w-3.5 h-3.5 text-slate-500" />
-              <span>{language === 'la' ? 'ສີປະຈຳຕົວ (Avatar Tag)' : 'Color Badge'}</span>
+              <span>{language === 'la' ? 'ສີປະຈຳຕົວ (Avatar Badge)' : 'Color Badge'}</span>
             </label>
             <div className="flex items-center gap-2">
               {COLOR_OPTIONS.map((c) => (
@@ -208,23 +218,46 @@ export const ResourceModal: React.FC<ResourceModalProps> = ({
           </div>
 
           {/* Buttons */}
-          <div className="pt-3 border-t border-slate-200 flex items-center justify-end space-x-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-            >
-              {t.cancel}
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
-            >
-              {t.save}
-            </button>
+          <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
+            <div>
+              {resource && onDelete && (
+                <button
+                  type="button"
+                  id="btn-delete-resource-modal"
+                  onClick={() => {
+                    if (window.confirm(language === 'la' ? 'ທ່ານແນ່ໃຈບໍ່ວ່າຕ້ອງການລຶບລາຍຊື່ນີ້?' : 'Are you sure you want to delete this resource?')) {
+                      onDelete(resource.id);
+                      onClose();
+                    }
+                  }}
+                  className="px-3 py-2 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                  <span>{t.delete}</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                {t.cancel}
+              </button>
+              <button
+                type="submit"
+                id="btn-save-resource"
+                className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
+              >
+                {t.save}
+              </button>
+            </div>
           </div>
         </form>
       </div>
     </div>
   );
 };
+

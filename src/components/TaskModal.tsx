@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, User, Clock, Layers, AlertCircle, FileText, Trash2 } from 'lucide-react';
+import { X, Calendar, User, Clock, Layers, AlertCircle, FileText, Trash2, Plus, Edit2, UserPlus, Check } from 'lucide-react';
 import { Task, Resource, TaskStatus, TaskPriority, Language } from '../types';
 import { translations } from '../utils/i18n';
 
@@ -13,6 +13,7 @@ interface TaskModalProps {
   tasks: Task[];
   resources: Resource[];
   language: Language;
+  onSaveResource?: (resource: Resource) => void;
 }
 
 export const TaskModal: React.FC<TaskModalProps> = ({
@@ -25,6 +26,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   tasks,
   resources,
   language,
+  onSaveResource,
 }) => {
   const t = translations[language];
 
@@ -40,7 +42,21 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [notes, setNotes] = useState('');
 
+  // Inline Assignee Quick Add & Edit states
+  const [isAddingAssignee, setIsAddingAssignee] = useState(false);
+  const [newAssigneeName, setNewAssigneeName] = useState('');
+  const [newAssigneeRole, setNewAssigneeRole] = useState('');
+
+  const [isEditingAssignee, setIsEditingAssignee] = useState(false);
+  const [editAssigneeName, setEditAssigneeName] = useState('');
+  const [editAssigneeRole, setEditAssigneeRole] = useState('');
+
   useEffect(() => {
+    setIsAddingAssignee(false);
+    setIsEditingAssignee(false);
+    setNewAssigneeName('');
+    setNewAssigneeRole('');
+
     if (task) {
       setName(task.name);
       setWbs(task.wbs);
@@ -115,6 +131,41 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       s.setDate(s.getDate() + d - 1);
       setEndDate(s.toISOString().split('T')[0]);
     }
+  };
+
+  const selectedAssignee = resources.find((r) => r.id === assigneeId) || resources[0];
+
+  const handleQuickAddSave = () => {
+    if (!newAssigneeName.trim()) return;
+    const colors = ['#2563eb', '#059669', '#d946ef', '#ea580c', '#4f46e5', '#0891b2', '#e11d48', '#7c3aed'];
+    const newRes: Resource = {
+      id: `res-${Date.now()}`,
+      name: newAssigneeName.trim(),
+      role: newAssigneeRole.trim() || (language === 'la' ? 'ສະມາຊິກທີມ' : 'Team Member'),
+      email: `${newAssigneeName.trim().toLowerCase().replace(/\s+/g, '.')}@company.la`,
+      capacityHoursPerWeek: 40,
+      avatarColor: colors[Math.floor(Math.random() * colors.length)],
+    };
+    if (onSaveResource) {
+      onSaveResource(newRes);
+    }
+    setAssigneeId(newRes.id);
+    setIsAddingAssignee(false);
+    setNewAssigneeName('');
+    setNewAssigneeRole('');
+  };
+
+  const handleQuickEditSave = () => {
+    if (!selectedAssignee || !editAssigneeName.trim()) return;
+    const updatedRes: Resource = {
+      ...selectedAssignee,
+      name: editAssigneeName.trim(),
+      role: editAssigneeRole.trim() || selectedAssignee.role,
+    };
+    if (onSaveResource) {
+      onSaveResource(updatedRes);
+    }
+    setIsEditingAssignee(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -226,21 +277,191 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                {t.assignee} *
-              </label>
-              <select
-                id="modal-task-assignee"
-                value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-              >
-                {resources.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name} ({r.role})
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  {t.assignee} *
+                </label>
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  {/* Quick Edit current assignee button */}
+                  {selectedAssignee && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingAssignee(!isEditingAssignee);
+                        setIsAddingAssignee(false);
+                        setEditAssigneeName(selectedAssignee.name);
+                        setEditAssigneeRole(selectedAssignee.role);
+                      }}
+                      className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-0.5 hover:underline cursor-pointer"
+                      title={language === 'la' ? 'ແກ້ໄຂຊື່ຜູ້ຮັບຜິດຊອບນີ້' : 'Edit assignee name'}
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      <span>{language === 'la' ? 'ແກ້ໄຂຊື່' : 'Edit Name'}</span>
+                    </button>
+                  )}
+                  <span className="text-slate-300">|</span>
+                  {/* Quick Add new assignee button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingAssignee(!isAddingAssignee);
+                      setIsEditingAssignee(false);
+                      setNewAssigneeName('');
+                      setNewAssigneeRole('');
+                    }}
+                    className="text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-0.5 hover:underline cursor-pointer"
+                    title={language === 'la' ? 'ເພີ່ມລາຍຊື່ຜູ້ຮັບຜິດຊອບໃໝ່' : 'Add new assignee'}
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>{language === 'la' ? '+ ເພີ່ມໃໝ່' : '+ Add'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Assignee Selector Dropdown */}
+              <div className="relative">
+                <select
+                  id="modal-task-assignee"
+                  value={assigneeId}
+                  onChange={(e) => {
+                    if (e.target.value === '__add_new__') {
+                      setIsAddingAssignee(true);
+                      setIsEditingAssignee(false);
+                      setNewAssigneeName('');
+                      setNewAssigneeRole('');
+                    } else {
+                      setAssigneeId(e.target.value);
+                      setIsEditingAssignee(false);
+                    }
+                  }}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                >
+                  {resources.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name} ({r.role})
+                    </option>
+                  ))}
+                  <option value="__add_new__">
+                    + {language === 'la' ? 'ເພີ່ມຜູ້ຮັບຜິດຊອບໃໝ່...' : 'Add New Assignee...'}
                   </option>
-                ))}
-              </select>
+                </select>
+              </div>
+
+              {/* Inline Quick Add Assignee Form */}
+              {isAddingAssignee && (
+                <div className="mt-2 p-2.5 bg-emerald-50/90 border border-emerald-300 rounded-lg animate-in fade-in duration-150 shadow-xs">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-emerald-900 flex items-center gap-1">
+                      <UserPlus className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>{language === 'la' ? 'ເພີ່ມຜູ້ຮັບຜິດຊອບໃໝ່' : 'Add New Assignee'}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingAssignee(false)}
+                      className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-1.5">
+                    <input
+                      type="text"
+                      value={newAssigneeName}
+                      onChange={(e) => setNewAssigneeName(e.target.value)}
+                      placeholder={language === 'la' ? 'ຊື່ ແລະ ນາມສະກຸນ (ເຊັ່ນ: ທ້າວ ສົມພອນ)' : 'Full Name (e.g. John Doe)'}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-emerald-300 rounded-md focus:ring-1 focus:ring-emerald-500 outline-none"
+                      autoFocus
+                    />
+                    <input
+                      type="text"
+                      value={newAssigneeRole}
+                      onChange={(e) => setNewAssigneeRole(e.target.value)}
+                      placeholder={language === 'la' ? 'ຕຳແໜ່ງ (ເຊັ່ນ: ວິສະວະກອນ, ຜູ້ປະສານງານ)' : 'Role / Position (e.g. Engineer)'}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-emerald-300 rounded-md focus:ring-1 focus:ring-emerald-500 outline-none"
+                    />
+                    <div className="flex justify-end gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingAssignee(false)}
+                        className="px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-200 rounded cursor-pointer"
+                      >
+                        {t.cancel}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleQuickAddSave}
+                        disabled={!newAssigneeName.trim()}
+                        className="px-2.5 py-1 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded shadow-xs flex items-center gap-1 cursor-pointer"
+                      >
+                        <Check className="w-3 h-3" />
+                        <span>{language === 'la' ? 'ບັນທຶກ ແລະ ເລືອກທັນທີ' : 'Save & Select'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Inline Quick Edit Assignee Form */}
+              {isEditingAssignee && selectedAssignee && (
+                <div className="mt-2 p-2.5 bg-blue-50/90 border border-blue-300 rounded-lg animate-in fade-in duration-150 shadow-xs">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-bold text-blue-900 flex items-center gap-1">
+                      <Edit2 className="w-3.5 h-3.5 text-blue-600" />
+                      <span>{language === 'la' ? 'ແກ້ໄຂຊື່ຜູ້ຮັບຜິດຊອບ' : 'Edit Assignee Name'}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingAssignee(false)}
+                      className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div>
+                      <label className="text-[10px] text-slate-600 block mb-0.5">
+                        {language === 'la' ? 'ຊື່ ແລະ ນາມສະກຸນ' : 'Full Name'}
+                      </label>
+                      <input
+                        type="text"
+                        value={editAssigneeName}
+                        onChange={(e) => setEditAssigneeName(e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-xs bg-white border border-blue-300 rounded-md focus:ring-1 focus:ring-blue-500 outline-none"
+                        autoFocus
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-600 block mb-0.5">
+                        {language === 'la' ? 'ຕຳແໜ່ງ' : 'Role'}
+                      </label>
+                      <input
+                        type="text"
+                        value={editAssigneeRole}
+                        onChange={(e) => setEditAssigneeRole(e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-xs bg-white border border-blue-300 rounded-md focus:ring-1 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingAssignee(false)}
+                        className="px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-200 rounded cursor-pointer"
+                      >
+                        {t.cancel}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleQuickEditSave}
+                        disabled={!editAssigneeName.trim()}
+                        className="px-2.5 py-1 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded shadow-xs flex items-center gap-1 cursor-pointer"
+                      >
+                        <Check className="w-3 h-3" />
+                        <span>{language === 'la' ? 'ບັນທຶກການແກ້ໄຂ' : 'Save Changes'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
